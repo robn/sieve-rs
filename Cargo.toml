@@ -1,0 +1,12 @@
+[package]
+name        = "sieve"
+version     = "0.1.0"
+description = "Compiler/processor for the Sieve email filtering language (RFC 5228)"
+license     = "MIT"
+authors     = ["Robert Norris <rob@robn.io>"]
+repository  = "https:/github.com/robn/sieve-rs"
+
+[lib]
+name = "sieve"
+
+[dependencies]
