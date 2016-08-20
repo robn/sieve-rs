@@ -14,3 +14,4 @@ name = "sieve-test"
 
 [dependencies]
 nom = "^1.2.4"
+email = "^0.0.13"
