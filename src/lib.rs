@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate nom;
 
-// XXX public temp
-pub mod parser;
+pub mod script;
+pub mod error;
+
+mod parser;
