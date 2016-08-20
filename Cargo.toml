@@ -10,3 +10,4 @@ repository  = "https:/github.com/robn/sieve-rs"
 name = "sieve"
 
 [dependencies]
+nom = "^1.2.4"
