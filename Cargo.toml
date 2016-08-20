@@ -9,5 +9,8 @@ repository  = "https:/github.com/robn/sieve-rs"
 [lib]
 name = "sieve"
 
+[[bin]]
+name = "sieve-test"
+
 [dependencies]
 nom = "^1.2.4"
