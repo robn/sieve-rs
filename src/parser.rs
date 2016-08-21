@@ -1,3 +1,4 @@
+use std::ascii::AsciiExt;
 use types::*;
 use nom::{IResult,Needed,Err,ErrorKind,eof};
 
@@ -528,7 +529,7 @@ named!(command<&str,Command>,
       block
     ),
       || {
-        match &*id {
+        match &*id.to_ascii_lowercase() {
           // Control commands (RFC 5228 s3)
           "if"      => Command::If(a.tests.clone(), c),
           "elsif"   => Command::ElsIf(a.tests.clone(), c),
