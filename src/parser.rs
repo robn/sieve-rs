@@ -642,7 +642,7 @@ named!(test_list<&str,Vec<Test> >,
           || { t }
       )
     ) ~
-    char_s!(')'),
+    complete!(char_s!(')')),
       || {
         let mut v: Vec<Test> = t.into_iter().collect();
         v.insert(0, h);
