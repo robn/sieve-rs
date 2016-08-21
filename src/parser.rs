@@ -1,3 +1,4 @@
+use types::*;
 use nom::{IResult,Needed,Err,ErrorKind,eof};
 
 macro_rules! char_between_s(
@@ -464,12 +465,6 @@ named!(white_space<&str,char>,
 /*
    argument     = string-list / number / tag
 */
-#[derive(Clone,PartialEq,Debug)]
-pub enum Argument {
-  StringList(Vec<String>),
-  Number(usize),
-  Tag(String),
-}
 named!(argument<&str,Argument>,
   chain!(
     many0!(white_space) ~ // consume whitespace in front of lexical token
@@ -485,11 +480,6 @@ named!(argument<&str,Argument>,
 /*
    arguments    = *argument [ test / test-list ]
 */
-#[derive(Clone,PartialEq,Debug)]
-pub struct Arguments {
-  pub arguments: Vec<Argument>,
-  pub tests:     Vec<Test>,
-}
 named!(arguments<&str,Arguments>,
   chain!(
     a: many0!(argument) ~
@@ -529,12 +519,6 @@ named!(block<&str,Vec<Command> >,
 /*
    command      = identifier arguments (";" / block)
 */
-#[derive(Clone,PartialEq,Debug)]
-pub struct Command {
-  pub identifier: String,
-  pub arguments:  Arguments,
-  pub commands:   Vec<Command>,
-}
 named!(command<&str,Command>,
   chain!(
     id: identifier ~
@@ -607,11 +591,6 @@ named!(string_list<&str,Vec<String> >,
 /*
    test         = identifier arguments
 */
-#[derive(Clone,PartialEq,Debug)]
-pub struct Test {
-  pub identifier: String,
-  pub arguments:  Arguments,
-}
 named!(test<&str,Test>,
   chain!(
     id: identifier ~
@@ -673,11 +652,10 @@ mod tests {
   use super::{quoted_string,quoted_text};
   use super::{tag,white_space};
   use super::{string,string_list};
-  use super::{argument,Argument};
-  use super::{arguments,Arguments};
-  use super::{test,test_list,Test};
-  use super::Command;
+  use super::{argument,arguments};
+  use super::{test,test_list};
   use super::start;
+  use types::*;
   use nom::IResult::*;
   use nom::Err::*;
   use nom::ErrorKind::*;

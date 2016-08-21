@@ -1,6 +1,4 @@
-use script::Script;
-use action::Action;
-use parser::Command;
+use types::{Script,Command,Action};
 
 use email::MimeMessage;
 

@@ -3,12 +3,12 @@ use std::fmt;
 
 use nom::{Needed,IResult};
 
-use parser;
+use types::Command;
 
 #[derive(Clone,PartialEq,Debug)]
 pub enum CompileError<'a> {
   Incomplete(Needed),
-  Unknown(IResult<&'a str,Vec<parser::Command>>),
+  Unknown(IResult<&'a str,Vec<Command>>),
 }
 
 impl<'a> Error for CompileError<'a> {

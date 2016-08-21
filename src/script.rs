@@ -1,15 +1,10 @@
 use parser;
 use execution;
-use action::Action;
+use types::{Script,Command,Action};
 use error::CompileError;
 
 use nom::IResult;
 use email::MimeMessage;
-
-#[derive(Clone,PartialEq,Debug)]
-pub struct Script {
-  pub commands: Vec<parser::Command>,
-}
 
 pub fn compile(script: &str) -> Result<Script,CompileError> {
   let res = parser::start(script);
