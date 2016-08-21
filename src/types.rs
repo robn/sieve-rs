@@ -6,12 +6,6 @@ pub enum Argument {
 }
 
 #[derive(Clone,PartialEq,Debug)]
-pub struct Arguments {
-  pub arguments: Vec<Argument>,
-  pub tests:     Vec<Test>,
-}
-
-#[derive(Clone,PartialEq,Debug)]
 pub enum Command {
   // Control commands (RFC 5228 s3)
   If(Vec<Test>, Vec<Command>),

@@ -481,7 +481,12 @@ named!(argument<&str,Argument>,
 /*
    arguments    = *argument [ test / test-list ]
 */
-named!(arguments<&str,Arguments>,
+#[derive(Clone,PartialEq,Debug)]
+struct ParsedArguments {
+  arguments: Vec<Argument>,
+  tests:     Vec<Test>,
+}
+named!(arguments<&str,ParsedArguments>,
   chain!(
     a: many0!(argument) ~
     t: opt!(
@@ -491,7 +496,7 @@ named!(arguments<&str,Arguments>,
       )
     ),
       || {
-        Arguments {
+        ParsedArguments {
           arguments: a,
           tests: match t {
             Some(ref t) => t.clone(),
@@ -677,7 +682,7 @@ mod tests {
   use super::{quoted_string,quoted_text};
   use super::{tag,white_space};
   use super::{string,string_list};
-  use super::{argument,arguments};
+  use super::{argument,arguments,ParsedArguments};
   use super::{test,test_list};
   use super::start;
   use types::*;
@@ -975,7 +980,7 @@ mod tests {
   #[test]
   fn arguments_test() {
     assert_eq!(arguments("\"foo\""), Done("",
-      Arguments {
+      ParsedArguments {
         arguments: vec!(Argument::StringList(vecstring!("foo"))),
         tests: vec!()
       }
