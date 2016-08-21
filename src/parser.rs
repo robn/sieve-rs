@@ -527,10 +527,23 @@ named!(command<&str,Command>,
       char_s!(';') => { |_| vec!() } |
       block
     ),
-      || Command {
-        identifier: id,
-        arguments: a,
-        commands: c,
+      || {
+        match &*id {
+          // Control commands (RFC 5228 s3)
+          "if"      => Command::If(a.tests.clone(), c),
+          "elsif"   => Command::ElsIf(a.tests.clone(), c),
+          "else"    => Command::Else(c),
+          "require" => Command::Require(a.arguments.clone()),
+          "stop"    => Command::Stop,
+
+          // Action commands (RFC 5228 s4)
+          "fileinto" => Command::FileInto(a.arguments.clone()),
+          "redirect" => Command::Redirect(a.arguments.clone()),
+          "keep"     => Command::Keep,
+          "discard"  => Command::Discard,
+
+          _ => Command::Unknown(id),
+        }
       }
   )
 );
@@ -1023,156 +1036,99 @@ mod tests {
   fn start_test() {
     let src: &'static str = include_str!("../testdata/rfc5228-full.sieve");
     assert_eq!(start(src),
-      Done("", vec!( 
-        Command {
-          identifier: "require".to_string(),
-          arguments: Arguments {
-            arguments: vec!(
-              Argument::StringList(vecstring!("fileinto")),
-            ),
-            tests: vec!(),
-          },
-          commands: vec!(),
-        },
-        Command {
-          identifier: "if".to_string(),
-          arguments: Arguments {
-            arguments: vec!(),
-            tests: vec!(
-              Test {
-                identifier: "header".to_string(),
-                arguments: Arguments {
-                  arguments: vec!(
-                    Argument::Tag("is".to_string()),
-                    Argument::StringList(vecstring!("Sender")),
-                    Argument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
-                  ),
-                  tests: vec!(),
-                } 
-              }
-            ) 
-          }, 
-          commands: vec!(
-            Command { 
-              identifier: "fileinto".to_string(),
+      Done("", vec!(
+        Command::Require(vec!(
+          Argument::StringList(vecstring!("fileinto")),
+        )),
+        Command::If(
+          vec!(
+            Test {
+              identifier: "header".to_string(),
               arguments: Arguments {
                 arguments: vec!(
-                  Argument::StringList(vecstring!("filter"))
+                  Argument::Tag("is".to_string()),
+                  Argument::StringList(vecstring!("Sender")),
+                  Argument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
                 ),
                 tests: vec!(),
-              }, 
-              commands: vec!(),
-            }
-          ) 
-        }, 
-        Command { 
-          identifier: "elsif".to_string(), 
-          arguments: Arguments { 
-            arguments: vec!(),
-            tests: vec!(
-              Test { 
-                identifier: "address".to_string(), 
-                arguments: Arguments { 
-                  arguments: vec!(
-                    Argument::Tag("DOMAIN".to_string()), 
-                    Argument::Tag("is".to_string()), 
-                    Argument::StringList(vecstring!("From", "To")), 
-                    Argument::StringList(vecstring!("example.com"))
-                  ), 
-                  tests: vec!()
-                } 
               }
-            ) 
-          }, 
-          commands: vec!(
-            Command { 
-              identifier: "keep".to_string(), 
-              arguments: Arguments { 
+            }
+          ), vec!(
+            Command::FileInto(vec!(
+              Argument::StringList(vecstring!("filter"))
+            )),
+          ),
+        ),
+        Command::ElsIf(
+          vec!(
+            Test {
+              identifier: "address".to_string(),
+              arguments: Arguments {
+                arguments: vec!(
+                  Argument::Tag("DOMAIN".to_string()),
+                  Argument::Tag("is".to_string()),
+                  Argument::StringList(vecstring!("From", "To")),
+                  Argument::StringList(vecstring!("example.com"))
+                ),
+                tests: vec!()
+              }
+            }
+          ), vec!(
+            Command::Keep,
+          ),
+        ),
+        Command::ElsIf(
+          vec!(
+            Test {
+              identifier: "anyof".to_string(),
+              arguments: Arguments {
                 arguments: vec!(),
-                tests: vec!(), 
-              }, 
-              commands: vec!(),
-            }
-          ), 
-        }, 
-        Command { 
-          identifier: "elsif".to_string(), 
-          arguments: Arguments { 
-            arguments: vec!(),
-            tests: vec!(
-              Test { 
-                identifier: "anyof".to_string(), 
-                arguments: Arguments { 
-                  arguments: vec!(), 
-                  tests: vec!(
-                    Test { 
-                      identifier: "NOT".to_string(), 
-                      arguments: Arguments { 
-                        arguments: vec!(), 
-                        tests: vec!(
-                          Test { 
-                            identifier: "address".to_string(), 
-                            arguments: Arguments { 
-                              arguments: vec!(
-                                Argument::Tag("all".to_string()), 
-                                Argument::Tag("contains".to_string()), 
-                                Argument::StringList(vecstring!("To", "Cc", "Bcc")), 
-                                Argument::StringList(vecstring!("me@example.com"))
-                              ), 
-                              tests: vec!(),
-                            } 
+                tests: vec!(
+                  Test {
+                    identifier: "NOT".to_string(),
+                    arguments: Arguments {
+                      arguments: vec!(),
+                      tests: vec!(
+                        Test {
+                          identifier: "address".to_string(),
+                          arguments: Arguments {
+                            arguments: vec!(
+                              Argument::Tag("all".to_string()),
+                              Argument::Tag("contains".to_string()),
+                              Argument::StringList(vecstring!("To", "Cc", "Bcc")),
+                              Argument::StringList(vecstring!("me@example.com"))
+                            ),
+                            tests: vec!(),
                           }
-                        ) 
-                      } 
-                    }, 
-                    Test { 
-                      identifier: "header".to_string(), 
-                      arguments: Arguments { 
-                        arguments: vec!(
-                          Argument::Tag("matches".to_string()), 
-                          Argument::StringList(vecstring!("subject")), 
-                          Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
-                        ), 
-                        tests: vec!() 
-                      } 
+                        }
+                      )
                     }
-                  ) 
-                } 
+                  },
+                  Test {
+                    identifier: "header".to_string(),
+                    arguments: Arguments {
+                      arguments: vec!(
+                        Argument::Tag("matches".to_string()),
+                        Argument::StringList(vecstring!("subject")),
+                        Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
+                      ),
+                      tests: vec!(),
+                    }
+                  }
+                )
               }
-            ) 
-          }, 
-          commands: vec!(
-            Command { 
-              identifier: "fileinto".to_string(), 
-              arguments: Arguments { 
-                arguments: vec!(
-                  Argument::StringList(vecstring!("spam"))
-                ), 
-                tests: vec!()
-              }, 
-              commands: vec!()
             }
-          ) 
-        }, 
-        Command { 
-          identifier: "else".to_string(), 
-          arguments: Arguments { 
-            arguments: vec!(),
-            tests: vec!() 
-          }, 
-          commands: vec!(
-            Command { 
-              identifier: "fileinto".to_string(), 
-              arguments: Arguments { 
-                arguments: vec!(
-                  Argument::StringList(vecstring!("personal"))
-                ), 
-                tests: vec!()
-              }, 
-              commands: vec!() 
-            }
-          ) 
-        }
+          ), vec!(
+            Command::FileInto(vec!(
+              Argument::StringList(vecstring!("spam"))
+            )),
+          ),
+        ),
+        Command::Else(vec!(
+          Command::FileInto(vec!(
+            Argument::StringList(vecstring!("personal"))
+          )),
+        )),
       ))
     )
   }

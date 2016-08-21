@@ -8,21 +8,21 @@ pub fn run(script: &Script, email: &MimeMessage) -> Vec<Action> {
 
 fn run_commands(commands: &Vec<Command>, email: &MimeMessage) -> Vec<Action> {
   commands.iter().flat_map(|c| {
-    println!("{}", c.identifier);
-    match &*c.identifier {
+    println!("{:#?}", c);
+    match *c {
 
       // controls
-      "if"      => cmd_if(&c, email),
-      "elsif"   => cmd_elsif(&c, email),
-      "else"    => cmd_else(&c, email),
-      "require" => cmd_require(&c, email),
-      "stop"    => cmd_stop(&c, email),
+      Command::If(_,_)    => cmd_if(&c, email),
+      Command::ElsIf(_,_) => cmd_elsif(&c, email),
+      Command::Else(_)    => cmd_else(&c, email),
+      Command::Require(_) => cmd_require(&c, email),
+      Command::Stop       => cmd_stop(&c, email),
 
       // actions
-      "fileinto" => cmd_fileinto(&c, email),
-      "redirect" => cmd_redirect(&c, email),
-      "keep"     => cmd_keep(&c, email),
-      "discard"  => cmd_discard(&c, email),
+      Command::FileInto(_) => cmd_fileinto(&c, email),
+      Command::Redirect(_) => cmd_redirect(&c, email),
+      Command::Keep        => cmd_keep(&c, email),
+      Command::Discard     => cmd_discard(&c, email),
 
       // XXX unknown command, throw exception
       _         => vec!(),
@@ -31,17 +31,17 @@ fn run_commands(commands: &Vec<Command>, email: &MimeMessage) -> Vec<Action> {
 }
 
 fn cmd_if(command: &Command, email: &MimeMessage) -> Vec<Action> {
-  run_commands(&command.commands, email);
+  //run_commands(&command.commands, email);
   vec!()
 }
 
 fn cmd_elsif(command: &Command, email: &MimeMessage) -> Vec<Action> {
-  run_commands(&command.commands, email);
+  //run_commands(&command.commands, email);
   vec!()
 }
 
 fn cmd_else(command: &Command, email: &MimeMessage) -> Vec<Action> {
-  run_commands(&command.commands, email);
+  //run_commands(&command.commands, email);
   vec!()
 }
 
