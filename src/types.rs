@@ -30,9 +30,20 @@ pub enum Command {
 }
 
 #[derive(Clone,PartialEq,Debug)]
-pub struct Test {
-  pub identifier: String,
-  pub arguments:  Arguments,
+pub enum Test {
+  // Test commands (RFC 5228 s5)
+  Address(Vec<Argument>),
+  AllOf(Vec<Test>),
+  AnyOf(Vec<Test>),
+  Envelope(Vec<Argument>),
+  Exists(Vec<Argument>),
+  False,
+  Header(Vec<Argument>),
+  Not(Vec<Test>),
+  Size(Vec<Argument>),
+  True,
+
+  Unknown(String),
 }
 
 #[derive(Clone,PartialEq,Debug)]

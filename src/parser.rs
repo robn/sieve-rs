@@ -609,9 +609,20 @@ named!(test<&str,Test>,
   chain!(
     id: identifier ~
     a: arguments,
-      || Test {
-        identifier: id,
-        arguments: a,
+      || match &*id.to_ascii_lowercase() {
+        // Test commands (RFC 5228 s5)
+        "address"  => Test::Address(a.arguments.clone()),
+        "allof"    => Test::AllOf(a.tests.clone()),
+        "anyof"    => Test::AnyOf(a.tests.clone()),
+        "envelope" => Test::Envelope(a.arguments.clone()),
+        "exists"   => Test::Exists(a.arguments.clone()),
+        "false"    => Test::False,
+        "header"   => Test::Header(a.arguments.clone()),
+        "not"      => Test::Not(a.tests.clone()),
+        "size"     => Test::Size(a.arguments.clone()),
+        "true"     => Test::True,
+
+        _ => Test::Unknown(id),
       }
   )
 );
@@ -973,62 +984,39 @@ mod tests {
 
   #[test]
   fn test_test() {
-    assert_eq!(test("a \"a\""), Done("",
-      Test {
-        identifier: "a".to_string(),
-        arguments: Arguments {
-          arguments: vec!(Argument::StringList(vecstring!("a"))),
-          tests: vec!(),
-        },
-      }
+    assert_eq!(test("address \"a\""), Done("",
+      Test::Address(vec!(
+        Argument::StringList(vecstring!("a")),
+      )),
     ));
   }
 
   #[test]
   fn test_list_test() {
-    assert_eq!(test_list("(a \"a\")"), Done("", vec!(
-      Test {
-        identifier: "a".to_string(),
-        arguments: Arguments {
-          arguments: vec!(Argument::StringList(vecstring!("a"))),
-          tests: vec!(),
-        },
-      },
+    assert_eq!(test_list("(address [\"a\",\"b\"], envelope 123)"), Done("", vec!(
+      Test::Address(vec!(
+        Argument::StringList(vecstring!("a","b")),
+      )),
+      Test::Envelope(vec!(
+        Argument::Number(123),
+      )),
     )));
 
     assert_eq!(test_list(" (NOT address :all :contains\r\n[\"To\", \"Cc\", \"Bcc\"] \"me@example.com\",\r\n header :matches \"subject\"\r\n [\"*make*money*fast*\", \"*university*dipl*mas*\"])"),
       Done("", vec!(
-        Test {
-          identifier: "NOT".to_string(),
-          arguments: Arguments {
-            arguments: vec!(),
-            tests: vec!(
-              Test {
-                identifier: "address".to_string(),
-                arguments: Arguments {
-                  arguments: vec!(
-                    Argument::Tag("all".to_string()),
-                    Argument::Tag("contains".to_string()),
-                    Argument::StringList(vecstring!("To", "Cc", "Bcc")),
-                    Argument::StringList(vecstring!("me@example.com"))
-                  ),
-                  tests: vec!()
-                }
-              }
-            )
-          }
-        },
-        Test {
-          identifier: "header".to_string(),
-          arguments: Arguments {
-            arguments: vec!(
-              Argument::Tag("matches".to_string()),
-              Argument::StringList(vecstring!("subject")),
-              Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*")),
-            ),
-            tests: vec!()
-          }
-        }
+        Test::Not(vec!(
+          Test::Address(vec!(
+            Argument::Tag("all".to_string()),
+            Argument::Tag("contains".to_string()),
+            Argument::StringList(vecstring!("To", "Cc", "Bcc")),
+            Argument::StringList(vecstring!("me@example.com"))
+          )),
+        )),
+        Test::Header(vec!(
+          Argument::Tag("matches".to_string()),
+          Argument::StringList(vecstring!("subject")),
+          Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*")),
+        )),
       ))
     );
   }
@@ -1043,17 +1031,13 @@ mod tests {
         )),
         Command::If(
           vec!(
-            Test {
-              identifier: "header".to_string(),
-              arguments: Arguments {
-                arguments: vec!(
-                  Argument::Tag("is".to_string()),
-                  Argument::StringList(vecstring!("Sender")),
-                  Argument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
-                ),
-                tests: vec!(),
-              }
-            }
+            Test::Header(
+              vec!(
+                Argument::Tag("is".to_string()),
+                Argument::StringList(vecstring!("Sender")),
+                Argument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
+              ),
+            ),
           ), vec!(
             Command::FileInto(vec!(
               Argument::StringList(vecstring!("filter"))
@@ -1062,63 +1046,33 @@ mod tests {
         ),
         Command::ElsIf(
           vec!(
-            Test {
-              identifier: "address".to_string(),
-              arguments: Arguments {
-                arguments: vec!(
-                  Argument::Tag("DOMAIN".to_string()),
-                  Argument::Tag("is".to_string()),
-                  Argument::StringList(vecstring!("From", "To")),
-                  Argument::StringList(vecstring!("example.com"))
-                ),
-                tests: vec!()
-              }
-            }
+            Test::Address(vec!(
+              Argument::Tag("DOMAIN".to_string()),
+              Argument::Tag("is".to_string()),
+              Argument::StringList(vecstring!("From", "To")),
+              Argument::StringList(vecstring!("example.com"))
+            )),
           ), vec!(
             Command::Keep,
           ),
         ),
         Command::ElsIf(
           vec!(
-            Test {
-              identifier: "anyof".to_string(),
-              arguments: Arguments {
-                arguments: vec!(),
-                tests: vec!(
-                  Test {
-                    identifier: "NOT".to_string(),
-                    arguments: Arguments {
-                      arguments: vec!(),
-                      tests: vec!(
-                        Test {
-                          identifier: "address".to_string(),
-                          arguments: Arguments {
-                            arguments: vec!(
-                              Argument::Tag("all".to_string()),
-                              Argument::Tag("contains".to_string()),
-                              Argument::StringList(vecstring!("To", "Cc", "Bcc")),
-                              Argument::StringList(vecstring!("me@example.com"))
-                            ),
-                            tests: vec!(),
-                          }
-                        }
-                      )
-                    }
-                  },
-                  Test {
-                    identifier: "header".to_string(),
-                    arguments: Arguments {
-                      arguments: vec!(
-                        Argument::Tag("matches".to_string()),
-                        Argument::StringList(vecstring!("subject")),
-                        Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
-                      ),
-                      tests: vec!(),
-                    }
-                  }
-                )
-              }
-            }
+            Test::AnyOf(vec!(
+              Test::Not(vec!(
+                Test::Address(vec!(
+                  Argument::Tag("all".to_string()),
+                  Argument::Tag("contains".to_string()),
+                  Argument::StringList(vecstring!("To", "Cc", "Bcc")),
+                  Argument::StringList(vecstring!("me@example.com"))
+                )),
+              )),
+              Test::Header(vec!(
+                Argument::Tag("matches".to_string()),
+                Argument::StringList(vecstring!("subject")),
+                Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
+              )),
+            )),
           ), vec!(
             Command::FileInto(vec!(
               Argument::StringList(vecstring!("spam"))
@@ -1127,7 +1081,7 @@ mod tests {
         ),
         Command::Else(vec!(
           Command::FileInto(vec!(
-            Argument::StringList(vecstring!("personal"))
+            Argument::StringList(vecstring!("personal")),
           )),
         )),
       ))
