@@ -2,6 +2,32 @@ use std::ascii::AsciiExt;
 use types::*;
 use nom::{IResult,Needed,Err,ErrorKind,eof};
 
+#[derive(Clone,PartialEq,Debug)]
+pub enum ParsedArgument {
+  StringList(Vec<String>),
+  Number(usize),
+  Tag(String),
+}
+
+#[derive(Clone,PartialEq,Debug)]
+pub struct ParsedArguments {
+  pub arguments: Vec<ParsedArgument>,
+  pub tests:     Vec<ParsedTest>,
+}
+
+#[derive(Clone,PartialEq,Debug)]
+pub struct ParsedCommand {
+  pub identifier: String,
+  pub arguments:  ParsedArguments,
+  pub commands:   Vec<ParsedCommand>,
+}
+
+#[derive(Clone,PartialEq,Debug)]
+pub struct ParsedTest {
+  pub identifier: String,
+  pub arguments:  ParsedArguments,
+}
+
 macro_rules! char_between_s(
   ($i:expr, $min:expr, $max:expr) => (
     {
@@ -466,13 +492,13 @@ named!(white_space<&str,char>,
 /*
    argument     = string-list / number / tag
 */
-named!(argument<&str,Argument>,
+named!(argument<&str,ParsedArgument>,
   chain!(
     many0!(white_space) ~ // consume whitespace in front of lexical token
     a: alt!(
-      string_list => { |x| Argument::StringList(x) } |
-      number      => { |x| Argument::Number(x) } |
-      tag         => { |x| Argument::Tag(x) }
+      string_list => { |x| ParsedArgument::StringList(x) } |
+      number      => { |x| ParsedArgument::Number(x) } |
+      tag         => { |x| ParsedArgument::Tag(x) }
     ),
       || { a }
   )
@@ -481,11 +507,6 @@ named!(argument<&str,Argument>,
 /*
    arguments    = *argument [ test / test-list ]
 */
-#[derive(Clone,PartialEq,Debug)]
-struct ParsedArguments {
-  arguments: Vec<Argument>,
-  tests:     Vec<Test>,
-}
 named!(arguments<&str,ParsedArguments>,
   chain!(
     a: many0!(argument) ~
@@ -510,7 +531,7 @@ named!(arguments<&str,ParsedArguments>,
 /*
    block        = "{" commands "}"
 */
-named!(block<&str,Vec<Command> >,
+named!(block<&str,Vec<ParsedCommand> >,
   chain!(
     many0!(white_space) ~ // consume whitespace in front of lexical token
     char_s!('{') ~
@@ -525,7 +546,7 @@ named!(block<&str,Vec<Command> >,
 /*
    command      = identifier arguments (";" / block)
 */
-named!(command<&str,Command>,
+named!(command<&str,ParsedCommand>,
   chain!(
     id: identifier ~
     a: arguments ~
@@ -533,23 +554,10 @@ named!(command<&str,Command>,
       char_s!(';') => { |_| vec!() } |
       block
     ),
-      || {
-        match &*id.to_ascii_lowercase() {
-          // Control commands (RFC 5228 s3)
-          "if"      => Command::If(a.tests.clone(), c),
-          "elsif"   => Command::ElsIf(a.tests.clone(), c),
-          "else"    => Command::Else(c),
-          "require" => Command::Require(a.arguments.clone()),
-          "stop"    => Command::Stop,
-
-          // Action commands (RFC 5228 s4)
-          "fileinto" => Command::FileInto(a.arguments.clone()),
-          "redirect" => Command::Redirect(a.arguments.clone()),
-          "keep"     => Command::Keep,
-          "discard"  => Command::Discard,
-
-          _ => Command::Unknown(id),
-        }
+      || ParsedCommand {
+        identifier: id,
+        arguments: a,
+        commands: c,
       }
   )
 );
@@ -557,14 +565,14 @@ named!(command<&str,Command>,
 /*
    commands     = *command
 */
-named!(commands<&str,Vec<Command> >,
+named!(commands<&str,Vec<ParsedCommand> >,
   many0!(command)
 );
 
 /*
    start        = commands
-*/ 
-named!(pub start<&str,Vec<Command> >,
+*/
+named!(pub start<&str,Vec<ParsedCommand> >,
   chain!(
     c: call!(commands) ~
     eof,
@@ -610,24 +618,13 @@ named!(string_list<&str,Vec<String> >,
 /*
    test         = identifier arguments
 */
-named!(test<&str,Test>,
+named!(test<&str,ParsedTest>,
   chain!(
     id: identifier ~
     a: arguments,
-      || match &*id.to_ascii_lowercase() {
-        // Test commands (RFC 5228 s5)
-        "address"  => Test::Address(a.arguments.clone()),
-        "allof"    => Test::AllOf(a.tests.clone()),
-        "anyof"    => Test::AnyOf(a.tests.clone()),
-        "envelope" => Test::Envelope(a.arguments.clone()),
-        "exists"   => Test::Exists(a.arguments.clone()),
-        "false"    => Test::False,
-        "header"   => Test::Header(a.arguments.clone()),
-        "not"      => Test::Not(a.tests.clone()),
-        "size"     => Test::Size(a.arguments.clone()),
-        "true"     => Test::True,
-
-        _ => Test::Unknown(id),
+      || ParsedTest {
+        identifier: id,
+        arguments: a,
       }
   )
 );
@@ -635,7 +632,7 @@ named!(test<&str,Test>,
 /*
    test-list    = "(" test *("," test) ")"
 */
-named!(test_list<&str,Vec<Test> >,
+named!(test_list<&str,Vec<ParsedTest> >,
   chain!(
     many0!(white_space) ~
     char_s!('(') ~
@@ -649,7 +646,7 @@ named!(test_list<&str,Vec<Test> >,
     ) ~
     complete!(char_s!(')')),
       || {
-        let mut v: Vec<Test> = t.into_iter().collect();
+        let mut v: Vec<ParsedTest> = t.into_iter().collect();
         v.insert(0, h);
         v
       }
@@ -682,8 +679,10 @@ mod tests {
   use super::{quoted_string,quoted_text};
   use super::{tag,white_space};
   use super::{string,string_list};
-  use super::{argument,arguments,ParsedArguments};
-  use super::{test,test_list};
+  use super::{command,ParsedCommand};
+  use super::{argument,ParsedArgument};
+  use super::{arguments,ParsedArguments};
+  use super::{test,ParsedTest,test_list};
   use super::start;
   use types::*;
   use nom::IResult::*;
@@ -972,16 +971,16 @@ mod tests {
 
   #[test]
   fn argument_test() {
-    assert_eq!(argument("\"foo\""), Done("", Argument::StringList(vecstring!("foo"))));
-    assert_eq!(argument("123"),     Done("", Argument::Number(123)));
-    assert_eq!(argument(":foo"),    Done("", Argument::Tag("foo".to_string())));
+    assert_eq!(argument("\"foo\""), Done("", ParsedArgument::StringList(vecstring!("foo"))));
+    assert_eq!(argument("123"),     Done("", ParsedArgument::Number(123)));
+    assert_eq!(argument(":foo"),    Done("", ParsedArgument::Tag("foo".to_string())));
   }
 
   #[test]
   fn arguments_test() {
     assert_eq!(arguments("\"foo\""), Done("",
       ParsedArguments {
-        arguments: vec!(Argument::StringList(vecstring!("foo"))),
+        arguments: vec!(ParsedArgument::StringList(vecstring!("foo"))),
         tests: vec!()
       }
     ));
@@ -990,38 +989,74 @@ mod tests {
   #[test]
   fn test_test() {
     assert_eq!(test("address \"a\""), Done("",
-      Test::Address(vec!(
-        Argument::StringList(vecstring!("a")),
-      )),
+      ParsedTest {
+        identifier: "address".to_string(),
+        arguments: ParsedArguments {
+          arguments: vec!(
+            ParsedArgument::StringList(vecstring!("a")),
+          ),
+          tests: vec!(),
+        },
+      },
     ));
   }
 
   #[test]
   fn test_list_test() {
     assert_eq!(test_list("(address [\"a\",\"b\"], envelope 123)"), Done("", vec!(
-      Test::Address(vec!(
-        Argument::StringList(vecstring!("a","b")),
-      )),
-      Test::Envelope(vec!(
-        Argument::Number(123),
-      )),
+      ParsedTest {
+        identifier: "address".to_string(),
+        arguments: ParsedArguments {
+          arguments: vec!(
+            ParsedArgument::StringList(vecstring!("a","b")),
+          ),
+          tests: vec!(),
+        },
+      },
+      ParsedTest {
+        identifier: "envelope".to_string(),
+        arguments: ParsedArguments {
+          arguments: vec!(
+            ParsedArgument::Number(123),
+          ),
+          tests: vec!(),
+        },
+      },
     )));
 
     assert_eq!(test_list(" (NOT address :all :contains\r\n[\"To\", \"Cc\", \"Bcc\"] \"me@example.com\",\r\n header :matches \"subject\"\r\n [\"*make*money*fast*\", \"*university*dipl*mas*\"])"),
       Done("", vec!(
-        Test::Not(vec!(
-          Test::Address(vec!(
-            Argument::Tag("all".to_string()),
-            Argument::Tag("contains".to_string()),
-            Argument::StringList(vecstring!("To", "Cc", "Bcc")),
-            Argument::StringList(vecstring!("me@example.com"))
-          )),
-        )),
-        Test::Header(vec!(
-          Argument::Tag("matches".to_string()),
-          Argument::StringList(vecstring!("subject")),
-          Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*")),
-        )),
+        ParsedTest {
+          identifier: "NOT".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(),
+            tests: vec!(
+              ParsedTest {
+                identifier: "address".to_string(),
+                arguments: ParsedArguments {
+                  arguments: vec!(
+                    ParsedArgument::Tag("all".to_string()),
+                    ParsedArgument::Tag("contains".to_string()),
+                    ParsedArgument::StringList(vecstring!("To", "Cc", "Bcc")),
+                    ParsedArgument::StringList(vecstring!("me@example.com"))
+                  ),
+                  tests: vec!(),
+                },
+              },
+            ),
+          },
+        },
+        ParsedTest {
+          identifier: "header".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(
+              ParsedArgument::Tag("matches".to_string()),
+              ParsedArgument::StringList(vecstring!("subject")),
+              ParsedArgument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*")),
+            ),
+            tests: vec!(),
+          },
+        },
       ))
     );
   }
@@ -1031,64 +1066,155 @@ mod tests {
     let src: &'static str = include_str!("../testdata/rfc5228-full.sieve");
     assert_eq!(start(src),
       Done("", vec!(
-        Command::Require(vec!(
-          Argument::StringList(vecstring!("fileinto")),
-        )),
-        Command::If(
-          vec!(
-            Test::Header(
-              vec!(
-                Argument::Tag("is".to_string()),
-                Argument::StringList(vecstring!("Sender")),
-                Argument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
-              ),
+        ParsedCommand {
+          identifier: "require".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(
+              ParsedArgument::StringList(vecstring!("fileinto")),
             ),
-          ), vec!(
-            Command::FileInto(vec!(
-              Argument::StringList(vecstring!("filter"))
-            )),
+            tests: vec!(),
+          },
+          commands: vec!(),
+        },
+        ParsedCommand {
+          identifier: "if".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(),
+            tests: vec!(
+              ParsedTest {
+                identifier: "header".to_string(),
+                arguments: ParsedArguments {
+                  arguments: vec!(
+                    ParsedArgument::Tag("is".to_string()),
+                    ParsedArgument::StringList(vecstring!("Sender")),
+                    ParsedArgument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
+                  ),
+                  tests: vec!(),
+                }
+              }
+            )
+          },
+          commands: vec!(
+            ParsedCommand {
+              identifier: "fileinto".to_string(),
+              arguments: ParsedArguments {
+                arguments: vec!(
+                  ParsedArgument::StringList(vecstring!("filter"))
+                ),
+                tests: vec!(),
+              },
+              commands: vec!(),
+            }
+          )
+        },
+        ParsedCommand {
+          identifier: "elsif".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(),
+            tests: vec!(
+              ParsedTest {
+                identifier: "address".to_string(),
+                arguments: ParsedArguments {
+                  arguments: vec!(
+                    ParsedArgument::Tag("DOMAIN".to_string()),
+                    ParsedArgument::Tag("is".to_string()),
+                    ParsedArgument::StringList(vecstring!("From", "To")),
+                    ParsedArgument::StringList(vecstring!("example.com"))
+                  ),
+                  tests: vec!()
+                }
+              }
+            )
+          },
+          commands: vec!(
+            ParsedCommand {
+              identifier: "keep".to_string(),
+              arguments: ParsedArguments {
+                arguments: vec!(),
+                tests: vec!(),
+              },
+              commands: vec!(),
+            }
           ),
-        ),
-        Command::ElsIf(
-          vec!(
-            Test::Address(vec!(
-              Argument::Tag("DOMAIN".to_string()),
-              Argument::Tag("is".to_string()),
-              Argument::StringList(vecstring!("From", "To")),
-              Argument::StringList(vecstring!("example.com"))
-            )),
-          ), vec!(
-            Command::Keep,
-          ),
-        ),
-        Command::ElsIf(
-          vec!(
-            Test::AnyOf(vec!(
-              Test::Not(vec!(
-                Test::Address(vec!(
-                  Argument::Tag("all".to_string()),
-                  Argument::Tag("contains".to_string()),
-                  Argument::StringList(vecstring!("To", "Cc", "Bcc")),
-                  Argument::StringList(vecstring!("me@example.com"))
-                )),
-              )),
-              Test::Header(vec!(
-                Argument::Tag("matches".to_string()),
-                Argument::StringList(vecstring!("subject")),
-                Argument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
-              )),
-            )),
-          ), vec!(
-            Command::FileInto(vec!(
-              Argument::StringList(vecstring!("spam"))
-            )),
-          ),
-        ),
-        Command::Else(vec!(
-          Command::FileInto(vec!(
-            Argument::StringList(vecstring!("personal")),
-          )),
-        )),
+        },
+        ParsedCommand {
+          identifier: "elsif".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(),
+            tests: vec!(
+              ParsedTest {
+                identifier: "anyof".to_string(),
+                arguments: ParsedArguments {
+                  arguments: vec!(),
+                  tests: vec!(
+                    ParsedTest {
+                      identifier: "NOT".to_string(),
+                      arguments: ParsedArguments {
+                        arguments: vec!(),
+                        tests: vec!(
+                          ParsedTest {
+                            identifier: "address".to_string(),
+                            arguments: ParsedArguments {
+                              arguments: vec!(
+                                ParsedArgument::Tag("all".to_string()),
+                                ParsedArgument::Tag("contains".to_string()),
+                                ParsedArgument::StringList(vecstring!("To", "Cc", "Bcc")),
+                                ParsedArgument::StringList(vecstring!("me@example.com"))
+                              ),
+                              tests: vec!(),
+                            }
+                          }
+                        )
+                      }
+                    },
+                    ParsedTest {
+                      identifier: "header".to_string(),
+                      arguments: ParsedArguments {
+                        arguments: vec!(
+                          ParsedArgument::Tag("matches".to_string()),
+                          ParsedArgument::StringList(vecstring!("subject")),
+                          ParsedArgument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
+                        ),
+                        tests: vec!()
+                      }
+                    }
+                  )
+                }
+              }
+            )
+          },
+          commands: vec!(
+            ParsedCommand {
+              identifier: "fileinto".to_string(),
+              arguments: ParsedArguments {
+                arguments: vec!(
+                  ParsedArgument::StringList(vecstring!("spam"))
+                ),
+                tests: vec!()
+              },
+              commands: vec!()
+            }
+          )
+        },
+        ParsedCommand {
+          identifier: "else".to_string(),
+          arguments: ParsedArguments {
+            arguments: vec!(),
+            tests: vec!()
+          },
+          commands: vec!(
+            ParsedCommand {
+              identifier: "fileinto".to_string(),
+              arguments: ParsedArguments {
+                arguments: vec!(
+                  ParsedArgument::StringList(vecstring!("personal"))
+                ),
+                tests: vec!()
+              },
+              commands: vec!()
+            }
+          )
+        }
       ))
     )
   }
