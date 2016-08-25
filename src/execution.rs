@@ -23,9 +23,6 @@ fn run_commands(commands: &Vec<Command>, email: &MimeMessage) -> Vec<Action> {
       Command::Redirect(_) => cmd_redirect(&c, email),
       Command::Keep        => cmd_keep(&c, email),
       Command::Discard     => cmd_discard(&c, email),
-
-      // XXX unknown command, throw exception
-      _         => vec!(),
     }
   } ).collect()
 }
