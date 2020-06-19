@@ -1,31 +1,29 @@
-use std::ascii::AsciiExt;
-use types::*;
-use nom::{IResult,Needed,Err,ErrorKind,eof};
+use nom::{eof, Err, ErrorKind, IResult, Needed};
 
-#[derive(Clone,PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ParsedArgument {
-  StringList(Vec<String>),
-  Number(usize),
-  Tag(String),
+    StringList(Vec<String>),
+    Number(usize),
+    Tag(String),
 }
 
-#[derive(Clone,PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ParsedArguments {
-  pub arguments: Vec<ParsedArgument>,
-  pub tests:     Vec<ParsedTest>,
+    pub arguments: Vec<ParsedArgument>,
+    pub tests: Vec<ParsedTest>,
 }
 
-#[derive(Clone,PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ParsedCommand {
-  pub identifier: String,
-  pub arguments:  ParsedArguments,
-  pub commands:   Vec<ParsedCommand>,
+    pub identifier: String,
+    pub arguments: ParsedArguments,
+    pub commands: Vec<ParsedCommand>,
 }
 
-#[derive(Clone,PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ParsedTest {
-  pub identifier: String,
-  pub arguments:  ParsedArguments,
+    pub identifier: String,
+    pub arguments: ParsedArguments,
 }
 
 macro_rules! char_between_s(
@@ -72,7 +70,6 @@ named!(crlf_s<&str,char>,
   )
 );
 
-
 /* ABNF core productions (RFC 4234) */
 
 /*
@@ -90,7 +87,7 @@ named!(alpha<&str,char>,
 */
 // XXX refactor
 fn is_digit(c: char) -> bool {
-  c >= '0' && c <= '9'
+    c >= '0' && c <= '9'
 }
 named!(digit<&str,char>,
   char_between_s!('0', '9')
@@ -117,13 +114,13 @@ named!(dquote<&str,char>,
   char_s!('"')
 );
 
-
 /* Sieve lexical tokens (RFC 5228 8.1) */
 
 /*
-   bracket-comment    = "/*" *not-star 1*STAR
-                        *(not-star-slash *not-star 1*STAR) "/"
-                          ; No */ allowed inside a comment.
+bracket-comment    = "/*" *not-star 1*STAR
+                     *(not-star-slash *not-star 1*STAR) "/"
+                       ; No */
+ allowed inside a comment.
                           ; (No * is allowed unless it is the last
                           ; character, or unless it is followed by a
                           ; character that isn't a slash.)
@@ -359,11 +356,11 @@ named!(octet_not_qspecial<&str,char>,
 /*
    QUANTIFIER         = "K" / "M" / "G"
 */
-#[derive(Clone,PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 enum Quantifier {
-  K,
-  M,
-  G,
+    K,
+    M,
+    G,
 }
 named!(quantifier<&str,Quantifier>,
   chain!(
@@ -485,7 +482,6 @@ named!(white_space<&str,char>,
       => { |_| ' ' }
   )
 );
-
 
 /* Sieve grammar (RFC 5228 8.2) */
 
@@ -653,7 +649,6 @@ named!(test_list<&str,Vec<ParsedTest> >,
   )
 );
 
-
 /* Sieve statement elements (RFC 5228 8.3) */
 
 /*
@@ -664,367 +659,416 @@ named!(test_list<&str,Vec<ParsedTest> >,
    MATCH-TYPE   = ":is" / ":contains" / ":matches"
 */
 
-
 #[cfg(test)]
 mod tests {
-  use super::{alpha,digit,sp,htab};
-  use super::{bracket_comment,comment,hash_comment};
-  use super::{identifier};
-  use super::{multiline_literal,multiline_dotstart,multi_line};
-  use super::{not_star,not_star_slash};
-  use super::{number};
-  use super::{octet_not_crlf,octet_not_period,octet_not_qspecial};
-  use super::{quantifier,Quantifier};
-  use super::{quoted_other,quoted_safe,quoted_special};
-  use super::{quoted_string,quoted_text};
-  use super::{tag,white_space};
-  use super::{string,string_list};
-  use super::{command,ParsedCommand};
-  use super::{argument,ParsedArgument};
-  use super::{arguments,ParsedArguments};
-  use super::{test,ParsedTest,test_list};
-  use super::start;
-  use types::*;
-  use nom::IResult::*;
-  use nom::Err::*;
-  use nom::ErrorKind::*;
+    use super::identifier;
+    use super::number;
+    use super::start;
+    use super::ParsedCommand;
+    use super::{alpha, digit, htab, sp};
+    use super::{argument, ParsedArgument};
+    use super::{arguments, ParsedArguments};
+    use super::{bracket_comment, comment, hash_comment};
+    use super::{multi_line, multiline_dotstart, multiline_literal};
+    use super::{not_star, not_star_slash};
+    use super::{octet_not_crlf, octet_not_period, octet_not_qspecial};
+    use super::{quantifier, Quantifier};
+    use super::{quoted_other, quoted_safe, quoted_special};
+    use super::{quoted_string, quoted_text};
+    use super::{string, string_list};
+    use super::{tag, white_space};
+    use super::{test, test_list, ParsedTest};
 
-  macro_rules! vecstring {
+    use nom::Err::*;
+    use nom::ErrorKind::*;
+    use nom::IResult::*;
+
+    macro_rules! vecstring {
     ($($s:expr),*) => {
       vec!($($s,)*).iter().map(|s| s.to_string()).collect()
     }
   }
 
-  #[test]
-  fn alpha_test() {
-    assert_eq!(alpha("a"),  Done("",  'a'));
-    assert_eq!(alpha("z"),  Done("",  'z'));
-    assert_eq!(alpha("AZ"), Done("Z", 'A'));
-    assert_eq!(alpha("2"),  Error(Position(Alt, "2")));
-  }
+    #[test]
+    fn alpha_test() {
+        assert_eq!(alpha("a"), Done("", 'a'));
+        assert_eq!(alpha("z"), Done("", 'z'));
+        assert_eq!(alpha("AZ"), Done("Z", 'A'));
+        assert_eq!(alpha("2"), Error(Position(Alt, "2")));
+    }
 
-  #[test]
-  fn digit_test() {
-    assert_eq!(digit("0"),  Done("",  '0'));
-    assert_eq!(digit("9"),  Done("",  '9'));
-    assert_eq!(digit("09"), Done("9", '0'));
-    assert_eq!(digit("a"),  Error(Position(OneOf, "a")));
-  }
+    #[test]
+    fn digit_test() {
+        assert_eq!(digit("0"), Done("", '0'));
+        assert_eq!(digit("9"), Done("", '9'));
+        assert_eq!(digit("09"), Done("9", '0'));
+        assert_eq!(digit("a"), Error(Position(OneOf, "a")));
+    }
 
-  #[test]
-  fn sp_test() {
-    assert_eq!(sp(" "),  Done("",   ' '));
-    assert_eq!(sp(" z"), Done("z",  ' '));
-    assert_eq!(sp("a"),  Error(Position(Char, "a")));
-  }
+    #[test]
+    fn sp_test() {
+        assert_eq!(sp(" "), Done("", ' '));
+        assert_eq!(sp(" z"), Done("z", ' '));
+        assert_eq!(sp("a"), Error(Position(Char, "a")));
+    }
 
-  #[test]
-  fn htab_test() {
-    assert_eq!(htab("\t"),  Done("",   '\t'));
-    assert_eq!(htab("\tz"), Done("z",  '\t'));
-    assert_eq!(htab("a"),   Error(Position(Char, "a")));
-  }
+    #[test]
+    fn htab_test() {
+        assert_eq!(htab("\t"), Done("", '\t'));
+        assert_eq!(htab("\tz"), Done("z", '\t'));
+        assert_eq!(htab("a"), Error(Position(Char, "a")));
+    }
 
-  #[test]
-  fn bracket_comment_test() {
-    assert_eq!(bracket_comment("/* a comment */"), Done("", ""));
-  }
+    #[test]
+    fn bracket_comment_test() {
+        assert_eq!(bracket_comment("/* a comment */"), Done("", ""));
+    }
 
-  #[test]
-  fn comment_test() {
-    assert_eq!(comment("/* a comment */"), Done("", ""));
-    assert_eq!(comment("# a comment\r\n"), Done("", ""));
-  }
+    #[test]
+    fn comment_test() {
+        assert_eq!(comment("/* a comment */"), Done("", ""));
+        assert_eq!(comment("# a comment\r\n"), Done("", ""));
+    }
 
-  #[test]
-  fn hash_comment_test() {
-    assert_eq!(hash_comment("# a comment\r\n"), Done("", ""));
-  }
+    #[test]
+    fn hash_comment_test() {
+        assert_eq!(hash_comment("# a comment\r\n"), Done("", ""));
+    }
 
-  #[test]
-  fn identifier_test() {
-    assert_eq!(identifier("a"),   Done("", "a".to_string()));
-    assert_eq!(identifier("_"),   Done("", "_".to_string()));
-    assert_eq!(identifier("abc"), Done("", "abc".to_string()));
-    assert_eq!(identifier("_bc"), Done("", "_bc".to_string()));
-    assert_eq!(identifier("_b_"), Done("", "_b_".to_string()));
-    assert_eq!(identifier("___"), Done("", "___".to_string()));
-    assert_eq!(identifier("ab1"), Done("", "ab1".to_string()));
+    #[test]
+    fn identifier_test() {
+        assert_eq!(identifier("a"), Done("", "a".to_string()));
+        assert_eq!(identifier("_"), Done("", "_".to_string()));
+        assert_eq!(identifier("abc"), Done("", "abc".to_string()));
+        assert_eq!(identifier("_bc"), Done("", "_bc".to_string()));
+        assert_eq!(identifier("_b_"), Done("", "_b_".to_string()));
+        assert_eq!(identifier("___"), Done("", "___".to_string()));
+        assert_eq!(identifier("ab1"), Done("", "ab1".to_string()));
 
-    assert_eq!(identifier("1"),   Error(Position(Alt, "1")));
-    assert_eq!(identifier("1ab"), Error(Position(Alt, "1ab")));
-  }
+        assert_eq!(identifier("1"), Error(Position(Alt, "1")));
+        assert_eq!(identifier("1ab"), Error(Position(Alt, "1ab")));
+    }
 
-  #[test]
-  fn mutiline_literal_test() {
-    assert_eq!(multiline_literal("abcdef\r\n"), Done("", "abcdef".to_string()));
-    assert_eq!(multiline_literal("abc.ef\r\n"), Done("", "abc.ef".to_string()));
+    #[test]
+    fn mutiline_literal_test() {
+        assert_eq!(
+            multiline_literal("abcdef\r\n"),
+            Done("", "abcdef".to_string())
+        );
+        assert_eq!(
+            multiline_literal("abc.ef\r\n"),
+            Done("", "abc.ef".to_string())
+        );
 
-    assert_eq!(multiline_literal(".bcdef\r\n"), Error(Position(Char, ".bcdef\r\n")));
-    assert_eq!(multiline_literal("abcdef"),     Error(Position(Complete, "")));
-  }
+        assert_eq!(
+            multiline_literal(".bcdef\r\n"),
+            Error(Position(Char, ".bcdef\r\n"))
+        );
+        assert_eq!(multiline_literal("abcdef"), Error(Position(Complete, "")));
+    }
 
-  #[test]
-  fn multiline_dotstart_test() {
-    assert_eq!(multiline_dotstart(".abcdef\r\n"), Done("", "abcdef".to_string()));
+    #[test]
+    fn multiline_dotstart_test() {
+        assert_eq!(
+            multiline_dotstart(".abcdef\r\n"),
+            Done("", "abcdef".to_string())
+        );
 
-    assert_eq!(multiline_dotstart("abcdef\r\n"),    Error(Position(TagStr, "abcdef\r\n")));
-    assert_eq!(multiline_dotstart(".abcdef"),       Error(Position(Complete, "")));
-    assert_eq!(multiline_dotstart(".abc\ndef\r\n"), Error(Position(Char, "\ndef\r\n")));
-  }
+        assert_eq!(
+            multiline_dotstart("abcdef\r\n"),
+            Error(Position(TagStr, "abcdef\r\n"))
+        );
+        assert_eq!(multiline_dotstart(".abcdef"), Error(Position(Complete, "")));
+        assert_eq!(
+            multiline_dotstart(".abc\ndef\r\n"),
+            Error(Position(Char, "\ndef\r\n"))
+        );
+    }
 
-  #[test]
-  fn multi_line_test() {
-    assert_eq!(multi_line("text:\r\nfoo\r\n.\r\n"),        Done("", "foo".to_string()));
-    assert_eq!(multi_line("text:\r\n.foo\r\n.\r\n"),       Done("", "foo".to_string()));
-    assert_eq!(multi_line("text:\r\nfoo\r\nbar\r\n.\r\n"), Done("", "foo\nbar".to_string()));
-  }
+    #[test]
+    fn multi_line_test() {
+        assert_eq!(
+            multi_line("text:\r\nfoo\r\n.\r\n"),
+            Done("", "foo".to_string())
+        );
+        assert_eq!(
+            multi_line("text:\r\n.foo\r\n.\r\n"),
+            Done("", "foo".to_string())
+        );
+        assert_eq!(
+            multi_line("text:\r\nfoo\r\nbar\r\n.\r\n"),
+            Done("", "foo\nbar".to_string())
+        );
+    }
 
-  #[test]
-  fn not_star_test() {
-    assert_eq!(not_star("a"),    Done("", 'a'));
-    assert_eq!(not_star("1"),    Done("", '1'));
-    assert_eq!(not_star("%"),    Done("", '%'));
-    assert_eq!(not_star("/"),    Done("", '/'));
-    assert_eq!(not_star("*"),    Error(Position(Alt, "*")));
-    assert_eq!(not_star("\""),   Done("", '"'));
-    assert_eq!(not_star("\\"),   Done("", '\\'));
-    assert_eq!(not_star("."),    Done("", '.'));
-    assert_eq!(not_star("\r\n"), Done("", '\n'));
-    assert_eq!(not_star("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(not_star("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(not_star("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn not_star_test() {
+        assert_eq!(not_star("a"), Done("", 'a'));
+        assert_eq!(not_star("1"), Done("", '1'));
+        assert_eq!(not_star("%"), Done("", '%'));
+        assert_eq!(not_star("/"), Done("", '/'));
+        assert_eq!(not_star("*"), Error(Position(Alt, "*")));
+        assert_eq!(not_star("\""), Done("", '"'));
+        assert_eq!(not_star("\\"), Done("", '\\'));
+        assert_eq!(not_star("."), Done("", '.'));
+        assert_eq!(not_star("\r\n"), Done("", '\n'));
+        assert_eq!(not_star("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(not_star("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(not_star("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn not_star_slash_test() {
-    assert_eq!(not_star_slash("a"),    Done("", 'a'));
-    assert_eq!(not_star_slash("1"),    Done("", '1'));
-    assert_eq!(not_star_slash("%"),    Done("", '%'));
-    assert_eq!(not_star_slash("/"),    Error(Position(Alt, "/")));
-    assert_eq!(not_star_slash("*"),    Error(Position(Alt, "*")));
-    assert_eq!(not_star_slash("\""),   Done("", '"'));
-    assert_eq!(not_star_slash("\\"),   Done("", '\\'));
-    assert_eq!(not_star_slash("."),    Done("", '.'));
-    assert_eq!(not_star_slash("\r\n"), Done("", '\n'));
-    assert_eq!(not_star_slash("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(not_star_slash("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(not_star_slash("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn not_star_slash_test() {
+        assert_eq!(not_star_slash("a"), Done("", 'a'));
+        assert_eq!(not_star_slash("1"), Done("", '1'));
+        assert_eq!(not_star_slash("%"), Done("", '%'));
+        assert_eq!(not_star_slash("/"), Error(Position(Alt, "/")));
+        assert_eq!(not_star_slash("*"), Error(Position(Alt, "*")));
+        assert_eq!(not_star_slash("\""), Done("", '"'));
+        assert_eq!(not_star_slash("\\"), Done("", '\\'));
+        assert_eq!(not_star_slash("."), Done("", '.'));
+        assert_eq!(not_star_slash("\r\n"), Done("", '\n'));
+        assert_eq!(not_star_slash("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(not_star_slash("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(not_star_slash("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn number_test() {
-    assert_eq!(number("1"),          Done("", 1));
-    assert_eq!(number("12"),         Done("", 12));
-    assert_eq!(number("123"),        Done("", 123));
-    assert_eq!(number("1234"),       Done("", 1234));
-    assert_eq!(number("12345"),      Done("", 12345));
-    assert_eq!(number("123456"),     Done("", 123456));
-    assert_eq!(number("1234567"),    Done("", 1234567));
-    assert_eq!(number("12345678"),   Done("", 12345678));
-    assert_eq!(number("123456789"),  Done("", 123456789));
-    assert_eq!(number("1234567890"), Done("", 1234567890));
+    #[test]
+    fn number_test() {
+        assert_eq!(number("1"), Done("", 1));
+        assert_eq!(number("12"), Done("", 12));
+        assert_eq!(number("123"), Done("", 123));
+        assert_eq!(number("1234"), Done("", 1234));
+        assert_eq!(number("12345"), Done("", 12345));
+        assert_eq!(number("123456"), Done("", 123_456));
+        assert_eq!(number("1234567"), Done("", 1_234_567));
+        assert_eq!(number("12345678"), Done("", 12_345_678));
+        assert_eq!(number("123456789"), Done("", 123_456_789));
+        assert_eq!(number("1234567890"), Done("", 1_234_567_890));
 
-    assert_eq!(number("0"),    Done("", 0));
-    assert_eq!(number("00"),   Done("", 0));
-    assert_eq!(number("000"),  Done("", 0));
-    assert_eq!(number("01"),   Done("", 1));
-    assert_eq!(number("012"),  Done("", 12));
-    assert_eq!(number("0102"), Done("", 102));
+        assert_eq!(number("0"), Done("", 0));
+        assert_eq!(number("00"), Done("", 0));
+        assert_eq!(number("000"), Done("", 0));
+        assert_eq!(number("01"), Done("", 1));
+        assert_eq!(number("012"), Done("", 12));
+        assert_eq!(number("0102"), Done("", 102));
 
-    assert_eq!(number("1K"), Done("", 1*2usize.pow(10)));
-    assert_eq!(number("1M"), Done("", 1*2usize.pow(20)));
-    assert_eq!(number("1G"), Done("", 1*2usize.pow(30)));
+        assert_eq!(number("1K"), Done("", 1 * 2usize.pow(10)));
+        assert_eq!(number("1M"), Done("", 1 * 2usize.pow(20)));
+        assert_eq!(number("1G"), Done("", 1 * 2usize.pow(30)));
 
-    assert_eq!(number("123K"), Done("", 123*2usize.pow(10)));
-    assert_eq!(number("123M"), Done("", 123*2usize.pow(20)));
-    assert_eq!(number("123G"), Done("", 123*2usize.pow(30)));
-  }
+        assert_eq!(number("123K"), Done("", 123 * 2usize.pow(10)));
+        assert_eq!(number("123M"), Done("", 123 * 2usize.pow(20)));
+        assert_eq!(number("123G"), Done("", 123 * 2usize.pow(30)));
+    }
 
-  #[test]
-  fn quantifier_test() {
-    assert_eq!(quantifier("K"), Done("", Quantifier::K));
-    assert_eq!(quantifier("M"), Done("", Quantifier::M));
-    assert_eq!(quantifier("G"), Done("", Quantifier::G));
-    assert_eq!(quantifier("T"), Error(Position(Alt, "T")));
-  }
+    #[test]
+    fn quantifier_test() {
+        assert_eq!(quantifier("K"), Done("", Quantifier::K));
+        assert_eq!(quantifier("M"), Done("", Quantifier::M));
+        assert_eq!(quantifier("G"), Done("", Quantifier::G));
+        assert_eq!(quantifier("T"), Error(Position(Alt, "T")));
+    }
 
-  #[test]
-  fn octet_not_crlf_test() {
-    assert_eq!(octet_not_crlf("a"),    Done("", 'a'));
-    assert_eq!(octet_not_crlf("1"),    Done("", '1'));
-    assert_eq!(octet_not_crlf("%"),    Done("", '%'));
-    assert_eq!(octet_not_crlf("/"),    Done("", '/'));
-    assert_eq!(octet_not_crlf("*"),    Done("", '*'));
-    assert_eq!(octet_not_crlf("\""),   Done("", '"'));
-    assert_eq!(octet_not_crlf("\\"),   Done("", '\\'));
-    assert_eq!(octet_not_crlf("."),    Done("", '.'));
-    assert_eq!(octet_not_crlf("\r\n"), Error(Position(Alt, "\r\n")));
-    assert_eq!(octet_not_crlf("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(octet_not_crlf("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(octet_not_crlf("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn octet_not_crlf_test() {
+        assert_eq!(octet_not_crlf("a"), Done("", 'a'));
+        assert_eq!(octet_not_crlf("1"), Done("", '1'));
+        assert_eq!(octet_not_crlf("%"), Done("", '%'));
+        assert_eq!(octet_not_crlf("/"), Done("", '/'));
+        assert_eq!(octet_not_crlf("*"), Done("", '*'));
+        assert_eq!(octet_not_crlf("\""), Done("", '"'));
+        assert_eq!(octet_not_crlf("\\"), Done("", '\\'));
+        assert_eq!(octet_not_crlf("."), Done("", '.'));
+        assert_eq!(octet_not_crlf("\r\n"), Error(Position(Alt, "\r\n")));
+        assert_eq!(octet_not_crlf("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(octet_not_crlf("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(octet_not_crlf("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn octet_not_period_test() {
-    assert_eq!(octet_not_period("a"),    Done("", 'a'));
-    assert_eq!(octet_not_period("1"),    Done("", '1'));
-    assert_eq!(octet_not_period("%"),    Done("", '%'));
-    assert_eq!(octet_not_period("/"),    Done("", '/'));
-    assert_eq!(octet_not_period("*"),    Done("", '*'));
-    assert_eq!(octet_not_period("\""),   Done("", '"'));
-    assert_eq!(octet_not_period("\\"),   Done("", '\\'));
-    assert_eq!(octet_not_period("."),    Error(Position(Alt, ".")));
-    assert_eq!(octet_not_period("\r\n"), Error(Position(Alt, "\r\n")));
-    assert_eq!(octet_not_period("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(octet_not_period("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(octet_not_period("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn octet_not_period_test() {
+        assert_eq!(octet_not_period("a"), Done("", 'a'));
+        assert_eq!(octet_not_period("1"), Done("", '1'));
+        assert_eq!(octet_not_period("%"), Done("", '%'));
+        assert_eq!(octet_not_period("/"), Done("", '/'));
+        assert_eq!(octet_not_period("*"), Done("", '*'));
+        assert_eq!(octet_not_period("\""), Done("", '"'));
+        assert_eq!(octet_not_period("\\"), Done("", '\\'));
+        assert_eq!(octet_not_period("."), Error(Position(Alt, ".")));
+        assert_eq!(octet_not_period("\r\n"), Error(Position(Alt, "\r\n")));
+        assert_eq!(octet_not_period("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(octet_not_period("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(octet_not_period("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn octet_not_qspecial_test() {
-    assert_eq!(octet_not_qspecial("a"),    Done("", 'a'));
-    assert_eq!(octet_not_qspecial("1"),    Done("", '1'));
-    assert_eq!(octet_not_qspecial("%"),    Done("", '%'));
-    assert_eq!(octet_not_qspecial("/"),    Done("", '/'));
-    assert_eq!(octet_not_qspecial("*"),    Done("", '*'));
-    assert_eq!(octet_not_qspecial("."),    Done("", '.'));
-    assert_eq!(octet_not_qspecial("\""),   Error(Position(Alt, "\"")));
-    assert_eq!(octet_not_qspecial("\\"),   Error(Position(Alt, "\\")));
-    assert_eq!(octet_not_qspecial("\r\n"), Error(Position(Alt, "\r\n")));
-    assert_eq!(octet_not_qspecial("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(octet_not_qspecial("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(octet_not_qspecial("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn octet_not_qspecial_test() {
+        assert_eq!(octet_not_qspecial("a"), Done("", 'a'));
+        assert_eq!(octet_not_qspecial("1"), Done("", '1'));
+        assert_eq!(octet_not_qspecial("%"), Done("", '%'));
+        assert_eq!(octet_not_qspecial("/"), Done("", '/'));
+        assert_eq!(octet_not_qspecial("*"), Done("", '*'));
+        assert_eq!(octet_not_qspecial("."), Done("", '.'));
+        assert_eq!(octet_not_qspecial("\""), Error(Position(Alt, "\"")));
+        assert_eq!(octet_not_qspecial("\\"), Error(Position(Alt, "\\")));
+        assert_eq!(octet_not_qspecial("\r\n"), Error(Position(Alt, "\r\n")));
+        assert_eq!(octet_not_qspecial("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(octet_not_qspecial("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(octet_not_qspecial("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn quoted_other_test() {
-    assert_eq!(quoted_other("\\a"),  Done("", 'a'));
-    assert_eq!(quoted_other("\\1"),  Done("", '1'));
-    assert_eq!(quoted_other("\\."),  Done("", '.'));
-    assert_eq!(quoted_other("\\\\"), Error(Position(Alt, "\\")));
-    assert_eq!(quoted_other("\\\""), Error(Position(Alt, "\"")));
-  }
+    #[test]
+    fn quoted_other_test() {
+        assert_eq!(quoted_other("\\a"), Done("", 'a'));
+        assert_eq!(quoted_other("\\1"), Done("", '1'));
+        assert_eq!(quoted_other("\\."), Done("", '.'));
+        assert_eq!(quoted_other("\\\\"), Error(Position(Alt, "\\")));
+        assert_eq!(quoted_other("\\\""), Error(Position(Alt, "\"")));
+    }
 
-  #[test]
-  fn quoted_safe_test() {
-    assert_eq!(quoted_safe("a"),    Done("", 'a'));
-    assert_eq!(quoted_safe("1"),    Done("", '1'));
-    assert_eq!(quoted_safe("%"),    Done("", '%'));
-    assert_eq!(quoted_safe("/"),    Done("", '/'));
-    assert_eq!(quoted_safe("*"),    Done("", '*'));
-    assert_eq!(quoted_safe("."),    Done("", '.'));
-    assert_eq!(quoted_safe("\""),   Error(Position(Alt, "\"")));
-    assert_eq!(quoted_safe("\\"),   Error(Position(Alt, "\\")));
-    assert_eq!(quoted_safe("\r\n"), Done("", '\n'));
-    assert_eq!(quoted_safe("\r"),   Error(Position(Alt, "\r")));
-    assert_eq!(quoted_safe("\n"),   Error(Position(Alt, "\n")));
-    assert_eq!(quoted_safe("\0"),   Error(Position(Alt, "\0")));
-  }
+    #[test]
+    fn quoted_safe_test() {
+        assert_eq!(quoted_safe("a"), Done("", 'a'));
+        assert_eq!(quoted_safe("1"), Done("", '1'));
+        assert_eq!(quoted_safe("%"), Done("", '%'));
+        assert_eq!(quoted_safe("/"), Done("", '/'));
+        assert_eq!(quoted_safe("*"), Done("", '*'));
+        assert_eq!(quoted_safe("."), Done("", '.'));
+        assert_eq!(quoted_safe("\""), Error(Position(Alt, "\"")));
+        assert_eq!(quoted_safe("\\"), Error(Position(Alt, "\\")));
+        assert_eq!(quoted_safe("\r\n"), Done("", '\n'));
+        assert_eq!(quoted_safe("\r"), Error(Position(Alt, "\r")));
+        assert_eq!(quoted_safe("\n"), Error(Position(Alt, "\n")));
+        assert_eq!(quoted_safe("\0"), Error(Position(Alt, "\0")));
+    }
 
-  #[test]
-  fn quoted_special_test() {
-    assert_eq!(quoted_special("\\\""), Done("", '\"'));
-    assert_eq!(quoted_special("\\\\"), Done("", '\\'));
-    assert_eq!(quoted_special("\\"),   Error(Position(Complete, "")));
-    assert_eq!(quoted_special("\\1"),  Error(Position(Alt, "1")));
-  }
+    #[test]
+    fn quoted_special_test() {
+        assert_eq!(quoted_special("\\\""), Done("", '\"'));
+        assert_eq!(quoted_special("\\\\"), Done("", '\\'));
+        assert_eq!(quoted_special("\\"), Error(Position(Complete, "")));
+        assert_eq!(quoted_special("\\1"), Error(Position(Alt, "1")));
+    }
 
-  #[test]
-  fn quotes_string_test() {
-    assert_eq!(quoted_string("\"abc123\""),     Done("", "abc123".to_string()));
-    assert_eq!(quoted_string("\"abc\r\n123\""), Done("", "abc\n123".to_string()));
-  }
+    #[test]
+    fn quotes_string_test() {
+        assert_eq!(quoted_string("\"abc123\""), Done("", "abc123".to_string()));
+        assert_eq!(
+            quoted_string("\"abc\r\n123\""),
+            Done("", "abc\n123".to_string())
+        );
+    }
 
-  #[test]
-  fn quoted_text_test() {
-    assert_eq!(quoted_text("abc123"), Done("", "abc123".to_string()));
-  }
+    #[test]
+    fn quoted_text_test() {
+        assert_eq!(quoted_text("abc123"), Done("", "abc123".to_string()));
+    }
 
-  #[test]
-  fn tag_test() {
-    assert_eq!(tag(":foo"),  Done("", "foo".to_string()));
-    assert_eq!(tag(":_foo"), Done("", "_foo".to_string()));
-  }
+    #[test]
+    fn tag_test() {
+        assert_eq!(tag(":foo"), Done("", "foo".to_string()));
+        assert_eq!(tag(":_foo"), Done("", "_foo".to_string()));
+    }
 
-  #[test]
-  fn white_space_test() {
-    assert_eq!(white_space("   "),             Done("", ' '));
-    assert_eq!(white_space(" \r\n "),          Done("", ' '));
-    assert_eq!(white_space(" \u{09} "),        Done("", ' '));
-    assert_eq!(white_space("/* beep boop */"), Done("", ' '));
-  }
+    #[test]
+    fn white_space_test() {
+        assert_eq!(white_space("   "), Done("", ' '));
+        assert_eq!(white_space(" \r\n "), Done("", ' '));
+        assert_eq!(white_space(" \u{09} "), Done("", ' '));
+        assert_eq!(white_space("/* beep boop */"), Done("", ' '));
+    }
 
-  #[test]
-  fn string_test() {
-    assert_eq!(string("\"foo\""),               Done("", "foo".to_string()));
-    assert_eq!(string("text:\r\nfoo\r\n.\r\n"), Done("", "foo".to_string()));
-  }
+    #[test]
+    fn string_test() {
+        assert_eq!(string("\"foo\""), Done("", "foo".to_string()));
+        assert_eq!(string("text:\r\nfoo\r\n.\r\n"), Done("", "foo".to_string()));
+    }
 
-  #[test]
-  fn string_list_test() {
-    assert_eq!(string_list("\"foo\""),                         Done("", vecstring!("foo")));
-    assert_eq!(string_list("[\"foo\"]"),                       Done("", vecstring!("foo")));
-    assert_eq!(string_list("[\"foo\",\"bar\"]"),               Done("", vecstring!("foo","bar")));
-    assert_eq!(string_list("[text:\r\nfoo\r\n.\r\n,\"bar\"]"), Done("", vecstring!("foo","bar")));
-  }
+    #[test]
+    fn string_list_test() {
+        assert_eq!(string_list("\"foo\""), Done("", vecstring!("foo")));
+        assert_eq!(string_list("[\"foo\"]"), Done("", vecstring!("foo")));
+        assert_eq!(
+            string_list("[\"foo\",\"bar\"]"),
+            Done("", vecstring!("foo", "bar"))
+        );
+        assert_eq!(
+            string_list("[text:\r\nfoo\r\n.\r\n,\"bar\"]"),
+            Done("", vecstring!("foo", "bar"))
+        );
+    }
 
-  #[test]
-  fn argument_test() {
-    assert_eq!(argument("\"foo\""), Done("", ParsedArgument::StringList(vecstring!("foo"))));
-    assert_eq!(argument("123"),     Done("", ParsedArgument::Number(123)));
-    assert_eq!(argument(":foo"),    Done("", ParsedArgument::Tag("foo".to_string())));
-  }
+    #[test]
+    fn argument_test() {
+        assert_eq!(
+            argument("\"foo\""),
+            Done("", ParsedArgument::StringList(vecstring!("foo")))
+        );
+        assert_eq!(argument("123"), Done("", ParsedArgument::Number(123)));
+        assert_eq!(
+            argument(":foo"),
+            Done("", ParsedArgument::Tag("foo".to_string()))
+        );
+    }
 
-  #[test]
-  fn arguments_test() {
-    assert_eq!(arguments("\"foo\""), Done("",
-      ParsedArguments {
-        arguments: vec!(ParsedArgument::StringList(vecstring!("foo"))),
-        tests: vec!()
-      }
-    ));
-  }
+    #[test]
+    fn arguments_test() {
+        assert_eq!(
+            arguments("\"foo\""),
+            Done(
+                "",
+                ParsedArguments {
+                    arguments: vec!(ParsedArgument::StringList(vecstring!("foo"))),
+                    tests: vec!()
+                }
+            )
+        );
+    }
 
-  #[test]
-  fn test_test() {
-    assert_eq!(test("address \"a\""), Done("",
-      ParsedTest {
-        identifier: "address".to_string(),
-        arguments: ParsedArguments {
-          arguments: vec!(
-            ParsedArgument::StringList(vecstring!("a")),
-          ),
-          tests: vec!(),
-        },
-      },
-    ));
-  }
+    #[test]
+    fn test_test() {
+        assert_eq!(
+            test("address \"a\""),
+            Done(
+                "",
+                ParsedTest {
+                    identifier: "address".to_string(),
+                    arguments: ParsedArguments {
+                        arguments: vec!(ParsedArgument::StringList(vecstring!("a")),),
+                        tests: vec!(),
+                    },
+                },
+            )
+        );
+    }
 
-  #[test]
-  fn test_list_test() {
-    assert_eq!(test_list("(address [\"a\",\"b\"], envelope 123)"), Done("", vec!(
-      ParsedTest {
-        identifier: "address".to_string(),
-        arguments: ParsedArguments {
-          arguments: vec!(
-            ParsedArgument::StringList(vecstring!("a","b")),
-          ),
-          tests: vec!(),
-        },
-      },
-      ParsedTest {
-        identifier: "envelope".to_string(),
-        arguments: ParsedArguments {
-          arguments: vec!(
-            ParsedArgument::Number(123),
-          ),
-          tests: vec!(),
-        },
-      },
-    )));
+    #[test]
+    fn test_list_test() {
+        assert_eq!(
+            test_list("(address [\"a\",\"b\"], envelope 123)"),
+            Done(
+                "",
+                vec!(
+                    ParsedTest {
+                        identifier: "address".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(ParsedArgument::StringList(vecstring!("a", "b")),),
+                            tests: vec!(),
+                        },
+                    },
+                    ParsedTest {
+                        identifier: "envelope".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(ParsedArgument::Number(123),),
+                            tests: vec!(),
+                        },
+                    },
+                )
+            )
+        );
 
-    assert_eq!(test_list(" (NOT address :all :contains\r\n[\"To\", \"Cc\", \"Bcc\"] \"me@example.com\",\r\n header :matches \"subject\"\r\n [\"*make*money*fast*\", \"*university*dipl*mas*\"])"),
+        assert_eq!(test_list(" (NOT address :all :contains\r\n[\"To\", \"Cc\", \"Bcc\"] \"me@example.com\",\r\n header :matches \"subject\"\r\n [\"*make*money*fast*\", \"*university*dipl*mas*\"])"),
       Done("", vec!(
         ParsedTest {
           identifier: "NOT".to_string(),
@@ -1059,163 +1103,156 @@ mod tests {
         },
       ))
     );
-  }
+    }
 
-  #[test]
-  fn start_test() {
-    let src: &'static str = include_str!("../testdata/rfc5228-full.sieve");
-    assert_eq!(start(src),
-      Done("", vec!(
-        ParsedCommand {
-          identifier: "require".to_string(),
-          arguments: ParsedArguments {
-            arguments: vec!(
-              ParsedArgument::StringList(vecstring!("fileinto")),
-            ),
-            tests: vec!(),
-          },
-          commands: vec!(),
-        },
-        ParsedCommand {
-          identifier: "if".to_string(),
-          arguments: ParsedArguments {
-            arguments: vec!(),
-            tests: vec!(
-              ParsedTest {
-                identifier: "header".to_string(),
-                arguments: ParsedArguments {
-                  arguments: vec!(
-                    ParsedArgument::Tag("is".to_string()),
-                    ParsedArgument::StringList(vecstring!("Sender")),
-                    ParsedArgument::StringList(vecstring!("owner-ietf-mta-filters@imc.org")),
-                  ),
-                  tests: vec!(),
-                }
-              }
-            )
-          },
-          commands: vec!(
-            ParsedCommand {
-              identifier: "fileinto".to_string(),
-              arguments: ParsedArguments {
-                arguments: vec!(
-                  ParsedArgument::StringList(vecstring!("filter"))
-                ),
-                tests: vec!(),
-              },
-              commands: vec!(),
-            }
-          )
-        },
-        ParsedCommand {
-          identifier: "elsif".to_string(),
-          arguments: ParsedArguments {
-            arguments: vec!(),
-            tests: vec!(
-              ParsedTest {
-                identifier: "address".to_string(),
-                arguments: ParsedArguments {
-                  arguments: vec!(
-                    ParsedArgument::Tag("DOMAIN".to_string()),
-                    ParsedArgument::Tag("is".to_string()),
-                    ParsedArgument::StringList(vecstring!("From", "To")),
-                    ParsedArgument::StringList(vecstring!("example.com"))
-                  ),
-                  tests: vec!()
-                }
-              }
-            )
-          },
-          commands: vec!(
-            ParsedCommand {
-              identifier: "keep".to_string(),
-              arguments: ParsedArguments {
-                arguments: vec!(),
-                tests: vec!(),
-              },
-              commands: vec!(),
-            }
-          ),
-        },
-        ParsedCommand {
-          identifier: "elsif".to_string(),
-          arguments: ParsedArguments {
-            arguments: vec!(),
-            tests: vec!(
-              ParsedTest {
-                identifier: "anyof".to_string(),
-                arguments: ParsedArguments {
-                  arguments: vec!(),
-                  tests: vec!(
-                    ParsedTest {
-                      identifier: "NOT".to_string(),
-                      arguments: ParsedArguments {
-                        arguments: vec!(),
-                        tests: vec!(
-                          ParsedTest {
-                            identifier: "address".to_string(),
-                            arguments: ParsedArguments {
-                              arguments: vec!(
-                                ParsedArgument::Tag("all".to_string()),
-                                ParsedArgument::Tag("contains".to_string()),
-                                ParsedArgument::StringList(vecstring!("To", "Cc", "Bcc")),
-                                ParsedArgument::StringList(vecstring!("me@example.com"))
-                              ),
-                              tests: vec!(),
-                            }
-                          }
-                        )
-                      }
+    #[test]
+    fn start_test() {
+        let src: &'static str = include_str!("../testdata/rfc5228-full.sieve");
+        assert_eq!(
+            start(src),
+            Done(
+                "",
+                vec!(
+                    ParsedCommand {
+                        identifier: "require".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(ParsedArgument::StringList(vecstring!("fileinto")),),
+                            tests: vec!(),
+                        },
+                        commands: vec!(),
                     },
-                    ParsedTest {
-                      identifier: "header".to_string(),
-                      arguments: ParsedArguments {
-                        arguments: vec!(
-                          ParsedArgument::Tag("matches".to_string()),
-                          ParsedArgument::StringList(vecstring!("subject")),
-                          ParsedArgument::StringList(vecstring!("*make*money*fast*", "*university*dipl*mas*"))
-                        ),
-                        tests: vec!()
-                      }
+                    ParsedCommand {
+                        identifier: "if".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(),
+                            tests: vec!(ParsedTest {
+                                identifier: "header".to_string(),
+                                arguments: ParsedArguments {
+                                    arguments: vec!(
+                                        ParsedArgument::Tag("is".to_string()),
+                                        ParsedArgument::StringList(vecstring!("Sender")),
+                                        ParsedArgument::StringList(vecstring!(
+                                            "owner-ietf-mta-filters@imc.org"
+                                        )),
+                                    ),
+                                    tests: vec!(),
+                                }
+                            })
+                        },
+                        commands: vec!(ParsedCommand {
+                            identifier: "fileinto".to_string(),
+                            arguments: ParsedArguments {
+                                arguments: vec!(ParsedArgument::StringList(vecstring!("filter"))),
+                                tests: vec!(),
+                            },
+                            commands: vec!(),
+                        })
+                    },
+                    ParsedCommand {
+                        identifier: "elsif".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(),
+                            tests: vec!(ParsedTest {
+                                identifier: "address".to_string(),
+                                arguments: ParsedArguments {
+                                    arguments: vec!(
+                                        ParsedArgument::Tag("DOMAIN".to_string()),
+                                        ParsedArgument::Tag("is".to_string()),
+                                        ParsedArgument::StringList(vecstring!("From", "To")),
+                                        ParsedArgument::StringList(vecstring!("example.com"))
+                                    ),
+                                    tests: vec!()
+                                }
+                            })
+                        },
+                        commands: vec!(ParsedCommand {
+                            identifier: "keep".to_string(),
+                            arguments: ParsedArguments {
+                                arguments: vec!(),
+                                tests: vec!(),
+                            },
+                            commands: vec!(),
+                        }),
+                    },
+                    ParsedCommand {
+                        identifier: "elsif".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(),
+                            tests: vec!(ParsedTest {
+                                identifier: "anyof".to_string(),
+                                arguments: ParsedArguments {
+                                    arguments: vec!(),
+                                    tests: vec!(
+                                        ParsedTest {
+                                            identifier: "NOT".to_string(),
+                                            arguments: ParsedArguments {
+                                                arguments: vec!(),
+                                                tests: vec!(ParsedTest {
+                                                    identifier: "address".to_string(),
+                                                    arguments: ParsedArguments {
+                                                        arguments: vec!(
+                                                            ParsedArgument::Tag("all".to_string()),
+                                                            ParsedArgument::Tag(
+                                                                "contains".to_string()
+                                                            ),
+                                                            ParsedArgument::StringList(vecstring!(
+                                                                "To", "Cc", "Bcc"
+                                                            )),
+                                                            ParsedArgument::StringList(vecstring!(
+                                                                "me@example.com"
+                                                            ))
+                                                        ),
+                                                        tests: vec!(),
+                                                    }
+                                                })
+                                            }
+                                        },
+                                        ParsedTest {
+                                            identifier: "header".to_string(),
+                                            arguments: ParsedArguments {
+                                                arguments: vec!(
+                                                    ParsedArgument::Tag("matches".to_string()),
+                                                    ParsedArgument::StringList(vecstring!(
+                                                        "subject"
+                                                    )),
+                                                    ParsedArgument::StringList(vecstring!(
+                                                        "*make*money*fast*",
+                                                        "*university*dipl*mas*"
+                                                    ))
+                                                ),
+                                                tests: vec!()
+                                            }
+                                        }
+                                    )
+                                }
+                            })
+                        },
+                        commands: vec!(ParsedCommand {
+                            identifier: "fileinto".to_string(),
+                            arguments: ParsedArguments {
+                                arguments: vec!(ParsedArgument::StringList(vecstring!("spam"))),
+                                tests: vec!()
+                            },
+                            commands: vec!()
+                        })
+                    },
+                    ParsedCommand {
+                        identifier: "else".to_string(),
+                        arguments: ParsedArguments {
+                            arguments: vec!(),
+                            tests: vec!()
+                        },
+                        commands: vec!(ParsedCommand {
+                            identifier: "fileinto".to_string(),
+                            arguments: ParsedArguments {
+                                arguments: vec!(ParsedArgument::StringList(vecstring!("personal"))),
+                                tests: vec!()
+                            },
+                            commands: vec!()
+                        })
                     }
-                  )
-                }
-              }
+                )
             )
-          },
-          commands: vec!(
-            ParsedCommand {
-              identifier: "fileinto".to_string(),
-              arguments: ParsedArguments {
-                arguments: vec!(
-                  ParsedArgument::StringList(vecstring!("spam"))
-                ),
-                tests: vec!()
-              },
-              commands: vec!()
-            }
-          )
-        },
-        ParsedCommand {
-          identifier: "else".to_string(),
-          arguments: ParsedArguments {
-            arguments: vec!(),
-            tests: vec!()
-          },
-          commands: vec!(
-            ParsedCommand {
-              identifier: "fileinto".to_string(),
-              arguments: ParsedArguments {
-                arguments: vec!(
-                  ParsedArgument::StringList(vecstring!("personal"))
-                ),
-                tests: vec!()
-              },
-              commands: vec!()
-            }
-          )
-        }
-      ))
-    )
-  }
+        )
+    }
 }
