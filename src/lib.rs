@@ -2,11 +2,11 @@
 extern crate nom;
 extern crate email;
 
-mod types;
-mod parser;
 mod execution;
+mod parser;
+mod types;
 
-pub mod script;
 pub mod error;
+pub mod script;
 
 pub use self::script::compile;

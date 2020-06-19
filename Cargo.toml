@@ -5,6 +5,7 @@ description = "Compiler/processor for the Sieve email filtering language (RFC 52
 license     = "MIT"
 authors     = ["Robert Norris <rob@robn.io>"]
 repository  = "https:/github.com/robn/sieve-rs"
+edition     = "2018"
 
 [lib]
 name = "sieve"
